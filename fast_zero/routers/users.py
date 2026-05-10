@@ -57,6 +57,11 @@ async def create_user(user: UserSchema, session: Session):
     return db_user
 
 
+@router.get('/me', response_model=UserPublic)
+async def read_users_me(current_user: CurrentUser):
+    return current_user
+
+
 @router.get('/', response_model=UserList)
 async def read_users(
     session: Session, filter_users: Annotated[FilterPage, Query()]
