@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OrganizeMyLife;
 using OrganizeMyLife.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,22 +31,76 @@ if (app.Environment.IsDevelopment())
 RouteGroupBuilder todoItems = app.MapGroup("/todoitems");
 
 todoItems.MapGet("/", GetAllTodos);
-todoItems.MapGet("/complete", GetCompleteTodos);
+// todoItems.MapGet("/complete", GetCompleteTodos);
 todoItems.MapGet("/{id}", GetTodo);
 todoItems.MapPost("/", CreateTodo);
 todoItems.MapPut("/{id}", UpdateTodo);
 todoItems.MapDelete("/{id}", DeleteTodo);
 
+RouteGroupBuilder users = app.MapGroup("/users");
+
+users.MapGet("/", GetAllUsers);
+users.MapPost("/", CreateUser);
+users.MapPut("/{id}", UpdateUser);
+users.MapDelete("/{id}", DeleteUser);
+
 app.Run();
+
+static async Task<IResult> GetAllUsers(AppDbContext db)
+{
+    var allUsers = await db.Users.ToArrayAsync();
+    return TypedResults.Ok(allUsers);
+}
+
+static async Task<IResult> CreateUser(UserDto userDto, AppDbContext db)
+{
+    var newUser = new OrganizeMyLife.Data.User
+    {
+        Username = userDto.Username,
+        Email = userDto.Email,
+        Password = userDto.Password
+    };
+
+    await db.Users.AddAsync(newUser);
+    await db.SaveChangesAsync();
+    
+    return TypedResults.Ok(newUser);
+}
+
+static async Task<IResult> UpdateUser(int id, UserDto userDto, AppDbContext db)
+{
+    var user = await db.Users.FindAsync(id);
+    
+    if (user is null) return TypedResults.NotFound();
+    
+    user.Username = userDto.Username;
+    user.Email = userDto.Email;
+    user.Password = userDto.Password;
+    await db.SaveChangesAsync();
+    
+    return TypedResults.NoContent();
+}
+
+static async Task<IResult> DeleteUser(int id, AppDbContext db)
+{
+    var user = await db.Users.FindAsync(id);
+    
+    if (user is null) return TypedResults.NotFound();
+    
+    db.Users.Remove(user);
+    await db.SaveChangesAsync();
+    
+    return TypedResults.NoContent();
+}   
 
 static async Task<IResult> GetAllTodos(AppDbContext db)
 {
     return TypedResults.Ok(await db.Todos.Select(x => new TodoItemDto(x)).ToArrayAsync());
 }
 
-static async Task<IResult> GetCompleteTodos(AppDbContext db) {
-    return TypedResults.Ok(await db.Todos.Where(t => t.State == TodoState.Done).Select(x => new TodoItemDto(x)).ToListAsync());
-}
+// static async Task<IResult> GetCompleteTodos(AppDbContext db) {
+//     return TypedResults.Ok(await db.Todos.Where(t => t.State == TodoState.Done).Select(x => new TodoItemDto(x)).ToListAsync());
+// }
 
 static async Task<IResult> GetTodo(int id, AppDbContext db)
 {
@@ -55,36 +110,36 @@ static async Task<IResult> GetTodo(int id, AppDbContext db)
             : TypedResults.NotFound();
 }
 
-static async Task<IResult> CreateTodo(TodoItemDto todoItemDTO, AppDbContext db)
+static async Task<IResult> CreateTodo(TodoItemDto todoItemDto, AppDbContext db)
 {
     var todoItem = new OrganizeMyLife.Data.Todo
     {
-        Title = todoItemDTO.Title,
-        Description = todoItemDTO.Description,
-        State = todoItemDTO.State,
-        UserId = todoItemDTO.UserId > 0 ? todoItemDTO.UserId : 1 // just a quick fallback to avoid FK constraints errors if they exist
+        Title = todoItemDto.Title,
+        Description = todoItemDto.Description,
+        State = todoItemDto.State,
+        UserId = todoItemDto.UserId > 0 ? todoItemDto.UserId : 1 // just a quick fallback to avoid FK constraints errors if they exist
     };
 
     db.Todos.Add(todoItem);
     await db.SaveChangesAsync();
 
-    todoItemDTO = new TodoItemDto(todoItem);
+    todoItemDto = new TodoItemDto(todoItem);
 
-    return TypedResults.Created($"/todoitems/{todoItem.Id}", todoItemDTO);
+    return TypedResults.Created($"/todoitems/{todoItem.Id}", todoItemDto);
 }
 
-static async Task<IResult> UpdateTodo(int id, TodoItemDto todoItemDTO, AppDbContext db)
+static async Task<IResult> UpdateTodo(int id, TodoItemDto todoItemDto, AppDbContext db)
 {
     var todo = await db.Todos.FindAsync(id);
 
     if (todo is null) return TypedResults.NotFound();
 
-    todo.Title = todoItemDTO.Title;
-    todo.Description = todoItemDTO.Description;
-    todo.State = todoItemDTO.State;
-    if(todoItemDTO.UserId > 0)
+    todo.Title = todoItemDto.Title;
+    todo.Description = todoItemDto.Description;
+    todo.State = todoItemDto.State;
+    if(todoItemDto.UserId > 0)
     {
-        todo.UserId = todoItemDTO.UserId;
+        todo.UserId = todoItemDto.UserId;
     }
 
     await db.SaveChangesAsync();
