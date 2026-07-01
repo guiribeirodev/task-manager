@@ -52,7 +52,9 @@ class Todo:
     description: Mapped[str]
     state: Mapped[TodoState]
 
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey('users.id'), nullable=True, default=None
+    )
 
     # user: Mapped[User] = relationship(init=False, back_populates='todos')
 
