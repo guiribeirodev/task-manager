@@ -26,6 +26,7 @@ async def create_todo(
     session: Session,
 ):
     db_todo = Todo(
+        user_id = 1, # TODO: Replace with actual user_id from auth
         title=todo.title,
         description=todo.description,
         state=todo.state,
