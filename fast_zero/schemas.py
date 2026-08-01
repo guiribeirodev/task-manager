@@ -10,6 +10,7 @@ class Message(BaseModel):
 
 
 class UserSchema(BaseModel):
+    id: int | None = None
     username: str
     email: EmailStr
     password: str

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import BigInteger, ForeignKey, func
 from sqlalchemy.orm import (
     Mapped,
     mapped_as_dataclass,
@@ -21,11 +21,13 @@ class TodoState(str, Enum):
     trash = 'trash'
 
 
-@mapped_as_dataclass(table_registry)
+@mapped_as_dataclass(table_registry, kw_only=True)
 class User:
     __tablename__ = 'users'
 
-    id: Mapped[int] = mapped_column(init=False, primary_key=True)
+    id: Mapped[int | None] = mapped_column(
+        BigInteger, primary_key=True, default=None
+    )
     username: Mapped[str] = mapped_column(unique=True)
     password: Mapped[str]
     email: Mapped[str] = mapped_column(unique=True)
@@ -53,7 +55,7 @@ class Todo:
     state: Mapped[TodoState]
 
     user_id: Mapped[int | None] = mapped_column(
-        ForeignKey('users.id'), nullable=True, default=None
+        BigInteger, ForeignKey('users.id'), nullable=True, default=None
     )
 
     # user: Mapped[User] = relationship(init=False, back_populates='todos')

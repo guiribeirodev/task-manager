@@ -20,6 +20,38 @@ def test_create_user(client):
     }
 
 
+def test_create_user_with_telegram_id(client):
+    telegram_id = 6930770036
+    response = client.post(
+        '/users/',
+        json={
+            'id': telegram_id,
+            'username': 'telegram_user',
+            'email': 'telegram@example.com',
+            'password': 'secret',
+        },
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    assert response.json() == {
+        'username': 'telegram_user',
+        'email': 'telegram@example.com',
+        'id': telegram_id,
+    }
+
+    # Test duplicate Telegram ID
+    response_dup = client.post(
+        '/users/',
+        json={
+            'id': telegram_id,
+            'username': 'other_user',
+            'email': 'other@example.com',
+            'password': 'secret',
+        },
+    )
+    assert response_dup.status_code == HTTPStatus.CONFLICT
+    assert response_dup.json() == {'detail': 'User already exists'}
+
+
 def test_read_users(client):
     response = client.get('/users')
     assert response.status_code == HTTPStatus.OK

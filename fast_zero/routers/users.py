@@ -16,6 +16,16 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 
 @router.post('/', status_code=HTTPStatus.CREATED, response_model=UserPublic)
 async def create_user(user: UserSchema, session: Session):
+    if user.id is not None:
+        db_user_by_id = await session.scalar(
+            select(User).where(User.id == user.id)
+        )
+        if db_user_by_id:
+            raise HTTPException(
+                status_code=HTTPStatus.CONFLICT,
+                detail='User already exists',
+            )
+
     db_user = await session.scalar(
         select(User).where(
             (User.username == user.username) | (User.email == user.email)
@@ -34,9 +44,10 @@ async def create_user(user: UserSchema, session: Session):
                 detail='Email already exists',
             )
 
+
     hashed_password = get_password_hash(user.password)
     db_user = User(
-        username=user.username, password=hashed_password, email=user.email
+        id=user.id, username=user.username, password=hashed_password, email=user.email
     )
     session.add(db_user)
     await session.commit()
