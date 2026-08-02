@@ -15,9 +15,14 @@ from fast_zero.schemas import (
     TodoSchema,
     TodoUpdate,
 )
+from fast_zero.security import verify_bot_token
 
 Session = Annotated[AsyncSession, Depends(get_session)]
-router = APIRouter(prefix='/todos', tags=['todos'])
+router = APIRouter(
+    prefix='/todos',
+    tags=['todos'],
+    dependencies=[Depends(verify_bot_token)],
+)
 
 
 @router.post('/', response_model=TodoPublic)
@@ -25,10 +30,12 @@ async def create_todo(
     todo: TodoSchema,
     session: Session,
 ):
+    print(todo)
     db_todo = Todo(
         title=todo.title,
         description=todo.description,
         state=todo.state,
+        user_id=todo.user_id,
     )
 
     session.add(db_todo)
@@ -38,12 +45,16 @@ async def create_todo(
     return db_todo
 
 
+
 @router.get('/', response_model=TodoList)
 async def list_todos(
     session: Session,
-    todo_filter: Annotated[FilterTodo, Query()],
+    todo_filter: FilterTodo = Depends(),
 ):
     query = select(Todo)
+
+    if todo_filter.telegram_id:
+        query = query.filter(Todo.user_id == todo_filter.telegram_id)
 
     if todo_filter.title:
         query = query.filter(Todo.title.contains(todo_filter.title))
@@ -61,6 +72,7 @@ async def list_todos(
     )
 
     return {'todos': todos.all()}
+
 
 
 @router.patch('/{todo_id}', response_model=TodoPublic)
@@ -95,3 +107,4 @@ async def delete_todo(todo_id: int, session: Session):
     await session.commit()
 
     return {'message': 'Task has been deleted successfully.'}
+

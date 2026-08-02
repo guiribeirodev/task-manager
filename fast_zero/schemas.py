@@ -41,6 +41,7 @@ class TodoSchema(BaseModel):
     title: str
     description: str
     state: TodoState
+    user_id: int | None = None
 
 
 class TodoPublic(TodoSchema):
@@ -49,14 +50,17 @@ class TodoPublic(TodoSchema):
     updated_at: datetime
 
 
+
 class TodoList(BaseModel):
     todos: list[TodoPublic]
 
 
 class FilterTodo(FilterPage):
+    telegram_id: int | None = None
     title: str | None = Field(None, min_length=3, max_length=20)
     description: str | None = Field(None, min_length=3, max_length=20)
     state: TodoState | None = None
+
 
 
 class TodoUpdate(BaseModel):
