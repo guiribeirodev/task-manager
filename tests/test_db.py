@@ -3,7 +3,7 @@ from dataclasses import asdict
 import pytest
 from sqlalchemy import select
 
-from fast_zero.models import Todo, TodoState, User
+from fast_zero.models import RecurrencePeriod, Todo, TodoState, User
 
 
 @pytest.mark.asyncio
@@ -49,6 +49,8 @@ async def test_create_todo(session, user, mock_db_time):
         'state': TodoState.draft,
         'title': 'Test Todo',
         'user_id': 1,
+        'recurrence': RecurrencePeriod.none,
+        'due_date': None,
         'created_at': time,
         'updated_at': time,
     }

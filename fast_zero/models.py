@@ -21,6 +21,13 @@ class TodoState(str, Enum):
     trash = 'trash'
 
 
+class RecurrencePeriod(str, Enum):
+    none = 'none'
+    daily = 'daily'
+    weekly = 'weekly'
+    monthly = 'monthly'
+
+
 @mapped_as_dataclass(table_registry, kw_only=True)
 class User:
     __tablename__ = 'users'
@@ -53,6 +60,12 @@ class Todo:
     title: Mapped[str]
     description: Mapped[str]
     state: Mapped[TodoState]
+    recurrence: Mapped[RecurrencePeriod] = mapped_column(
+        default=RecurrencePeriod.none
+    )
+    due_date: Mapped[datetime | None] = mapped_column(
+        default=None, nullable=True
+    )
 
     user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey('users.id'), nullable=True, default=None

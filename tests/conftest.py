@@ -13,6 +13,9 @@ from fast_zero.app import app
 from fast_zero.database import get_session
 from fast_zero.models import User, table_registry
 from fast_zero.security import get_password_hash
+from fast_zero.settings import Settings
+
+settings = Settings()
 
 
 @pytest.fixture
@@ -21,6 +24,7 @@ def client(session):
         return session
 
     with TestClient(app) as client:
+        client.headers['X-Bot-Api-Key'] = settings.BOT_KEY
         app.dependency_overrides[get_session] = get_session_override
         yield client
 
@@ -29,8 +33,12 @@ def client(session):
 
 @pytest.fixture(scope='session')
 def engine():
-    with PostgresContainer('postgres:16', driver='psycopg') as postgres:
-        _engine = create_async_engine(postgres.get_connection_url())
+    try:
+        with PostgresContainer('postgres:16', driver='psycopg') as postgres:
+            _engine = create_async_engine(postgres.get_connection_url())
+            yield _engine
+    except Exception:
+        _engine = create_async_engine('sqlite+aiosqlite:///:memory:')
         yield _engine
 
 

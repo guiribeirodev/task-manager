@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from fast_zero.models import TodoState
+from fast_zero.models import RecurrencePeriod, TodoState
 
 
 class Message(BaseModel):
@@ -42,6 +42,8 @@ class TodoSchema(BaseModel):
     description: str
     state: TodoState
     user_id: int | None = None
+    recurrence: RecurrencePeriod = RecurrencePeriod.none
+    due_date: datetime | None = None
 
 
 class TodoPublic(TodoSchema):
@@ -60,6 +62,7 @@ class FilterTodo(FilterPage):
     title: str | None = Field(None, min_length=3, max_length=20)
     description: str | None = Field(None, min_length=3, max_length=20)
     state: TodoState | None = None
+    recurrence: RecurrencePeriod | None = None
 
 
 
@@ -67,3 +70,5 @@ class TodoUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     state: TodoState | None = None
+    recurrence: RecurrencePeriod | None = None
+    due_date: datetime | None = None
