@@ -27,18 +27,44 @@ router = APIRouter(
 )
 
 
+def _next_month(year: int, month: int) -> tuple[int, int]:
+    m = month % 12 + 1
+    y = year + (month // 12)
+    return y, m
+
+
 def calculate_next_due_date(
-    base_date: datetime | None, period: RecurrencePeriod
+    base_date: datetime | None,
+    period: RecurrencePeriod,
+    recurrence_days: list[int] | None = None,
 ) -> datetime:
     base = base_date or datetime.now()
     if period == RecurrencePeriod.daily:
         return base + timedelta(days=1)
     elif period == RecurrencePeriod.weekly:
+        if recurrence_days:
+            valid_days = sorted(set(recurrence_days))
+            w = base.weekday()
+            min_delta = min(
+                (d - w) if d > w else (7 - w + d) for d in valid_days
+            )
+            return base + timedelta(days=min_delta)
         return base + timedelta(weeks=1)
     elif period == RecurrencePeriod.monthly:
-        month = base.month - 1 + 1
-        year = base.year + month // 12
-        month = month % 12 + 1
+        if recurrence_days:
+            valid_days = sorted(set(recurrence_days))
+            future_days_this_month = [d for d in valid_days if d > base.day]
+            if future_days_this_month:
+                target_day = future_days_this_month[0]
+                year, month = base.year, base.month
+            else:
+                year, month = _next_month(base.year, base.month)
+                target_day = valid_days[0]
+            max_day = calendar.monthrange(year, month)[1]
+            return base.replace(
+                year=year, month=month, day=min(target_day, max_day)
+            )
+        year, month = _next_month(base.year, base.month)
         day = min(base.day, calendar.monthrange(year, month)[1])
         return base.replace(year=year, month=month, day=day)
     return base
@@ -56,6 +82,7 @@ async def create_todo(
         state=todo.state,
         user_id=todo.user_id,
         recurrence=todo.recurrence,
+        recurrence_days=todo.recurrence_days,
         due_date=todo.due_date,
     )
 
@@ -69,7 +96,7 @@ async def create_todo(
 @router.get('/', response_model=TodoList)
 async def list_todos(
     session: Session,
-    todo_filter: FilterTodo = Depends(),
+    todo_filter: Annotated[FilterTodo, Query()],
 ):
     query = select(Todo)
 
@@ -119,7 +146,7 @@ async def patch_todo(todo_id: int, session: Session, todo: TodoUpdate):
         and db_todo.recurrence != RecurrencePeriod.none
     ):
         next_due = calculate_next_due_date(
-            db_todo.due_date, db_todo.recurrence
+            db_todo.due_date, db_todo.recurrence, db_todo.recurrence_days
         )
         next_todo = Todo(
             title=db_todo.title,
@@ -127,6 +154,7 @@ async def patch_todo(todo_id: int, session: Session, todo: TodoUpdate):
             state=TodoState.todo,
             user_id=db_todo.user_id,
             recurrence=db_todo.recurrence,
+            recurrence_days=db_todo.recurrence_days,
             due_date=next_due,
         )
         session.add(next_todo)
@@ -150,4 +178,3 @@ async def delete_todo(todo_id: int, session: Session):
     await session.commit()
 
     return {'message': 'Task has been deleted successfully.'}
-

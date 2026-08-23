@@ -50,6 +50,7 @@ async def test_create_todo(session, user, mock_db_time):
         'title': 'Test Todo',
         'user_id': 1,
         'recurrence': RecurrencePeriod.none,
+        'recurrence_days': None,
         'due_date': None,
         'created_at': time,
         'updated_at': time,

@@ -44,10 +44,12 @@ async def create_user(user: UserSchema, session: Session):
                 detail='Email already exists',
             )
 
-
     hashed_password = get_password_hash(user.password)
     db_user = User(
-        id=user.id, username=user.username, password=hashed_password, email=user.email
+        id=user.id,
+        username=user.username,
+        password=hashed_password,
+        email=user.email,
     )
     session.add(db_user)
     await session.commit()

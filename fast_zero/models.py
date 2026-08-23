@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, ForeignKey, func
+from sqlalchemy import JSON, BigInteger, ForeignKey, func
 from sqlalchemy.orm import (
     Mapped,
     mapped_as_dataclass,
@@ -62,6 +62,9 @@ class Todo:
     state: Mapped[TodoState]
     recurrence: Mapped[RecurrencePeriod] = mapped_column(
         default=RecurrencePeriod.none
+    )
+    recurrence_days: Mapped[list[int] | None] = mapped_column(
+        JSON, default=None, nullable=True
     )
     due_date: Mapped[datetime | None] = mapped_column(
         default=None, nullable=True
