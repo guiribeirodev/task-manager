@@ -512,3 +512,170 @@ def test_create_todo_invalid_recurrence_days_monthly(client):
         },
     )
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_empty(client):
+    response = client.get('/todos/schedule?date=2026-08-25')
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {
+        'date': '2026-08-25',
+        'todos': [],
+    }
+
+
+def test_get_schedule_default_date(client):
+    response = client.get('/todos/schedule')
+    assert response.status_code == HTTPStatus.OK
+    assert 'date' in response.json()
+    assert isinstance(response.json()['todos'], list)
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_with_direct_due_date_task(session, client):
+    todo = TodoFactory(
+        title='Tarefa Pontual',
+        state=TodoState.todo,
+        due_date=datetime(2026, 8, 25, 14, 0, 0),
+        recurrence=RecurrencePeriod.none,
+    )
+    session.add(todo)
+    await session.commit()
+
+    # Data correta
+    resp_match = client.get('/todos/schedule?date=2026-08-25')
+    assert resp_match.status_code == HTTPStatus.OK
+    todos_match = resp_match.json()['todos']
+    assert len(todos_match) == 1
+    assert todos_match[0]['title'] == 'Tarefa Pontual'
+    assert todos_match[0]['is_recurring_occurrence'] is False
+
+    # Outra data
+    resp_other = client.get('/todos/schedule?date=2026-08-26')
+    assert resp_other.status_code == HTTPStatus.OK
+    assert len(resp_other.json()['todos']) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_with_weekly_recurring_days(session, client):
+    # Segunda-feira, 10 de Agosto de 2026
+    todo = TodoFactory(
+        title='Treino Semanal',
+        state=TodoState.todo,
+        recurrence=RecurrencePeriod.weekly,
+        recurrence_days=[0, 3, 4],  # Seg, Qui, Sex
+        due_date=datetime(2026, 8, 10, 10, 0, 0),
+    )
+    session.add(todo)
+    await session.commit()
+
+    # Segunda (2026-08-10) -> instância direta
+    resp_mon = client.get('/todos/schedule?date=2026-08-10')
+    todos_mon = resp_mon.json()['todos']
+    assert len(todos_mon) == 1
+    assert todos_mon[0]['is_recurring_occurrence'] is False
+
+    # Terça (2026-08-11) -> não ocorre
+    resp_tue = client.get('/todos/schedule?date=2026-08-11')
+    assert len(resp_tue.json()['todos']) == 0
+
+    # Quinta (2026-08-13) -> ocorrência projetada
+    resp_thu = client.get('/todos/schedule?date=2026-08-13')
+    todos_thu = resp_thu.json()['todos']
+    assert len(todos_thu) == 1
+    assert todos_thu[0]['is_recurring_occurrence'] is True
+    assert '2026-08-13T10:00:00' in todos_thu[0]['due_date']
+
+    # Próxima Segunda (2026-08-17) -> ocorrência projetada
+    resp_next_mon = client.get('/todos/schedule?date=2026-08-17')
+    todos_next_mon = resp_next_mon.json()['todos']
+    assert len(todos_next_mon) == 1
+    assert todos_next_mon[0]['is_recurring_occurrence'] is True
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_with_monthly_recurring_day(session, client):
+    todo = TodoFactory(
+        title='Pagar Aluguel',
+        state=TodoState.todo,
+        recurrence=RecurrencePeriod.monthly,
+        recurrence_days=[12],
+        due_date=datetime(2026, 8, 12, 9, 0, 0),
+    )
+    session.add(todo)
+    await session.commit()
+
+    # Mês base (2026-08-12)
+    resp_aug = client.get('/todos/schedule?date=2026-08-12')
+    todos_aug = resp_aug.json()['todos']
+    assert len(todos_aug) == 1
+    assert todos_aug[0]['is_recurring_occurrence'] is False
+
+    # Mês seguinte (2026-09-12)
+    resp_sep = client.get('/todos/schedule?date=2026-09-12')
+    todos_sep = resp_sep.json()['todos']
+    assert len(todos_sep) == 1
+    assert todos_sep[0]['is_recurring_occurrence'] is True
+    assert '2026-09-12T09:00:00' in todos_sep[0]['due_date']
+
+    # Dia diferente (2026-09-13)
+    resp_diff = client.get('/todos/schedule?date=2026-09-13')
+    assert len(resp_diff.json()['todos']) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_with_daily_recurrence(session, client):
+    todo = TodoFactory(
+        title='Leitura Diária',
+        state=TodoState.todo,
+        recurrence=RecurrencePeriod.daily,
+        due_date=datetime(2026, 8, 10, 8, 0, 0),
+    )
+    session.add(todo)
+    await session.commit()
+
+    # Futuro (2026-08-15)
+    resp_future = client.get('/todos/schedule?date=2026-08-15')
+    todos_future = resp_future.json()['todos']
+    assert len(todos_future) == 1
+    assert todos_future[0]['is_recurring_occurrence'] is True
+
+    # Passado antes do base_date (2026-08-05)
+    resp_past = client.get('/todos/schedule?date=2026-08-05')
+    assert len(resp_past.json()['todos']) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_filters_by_telegram_id(
+    session, client, user, other_user
+):
+    todo_user_1 = TodoFactory(
+        title='Tarefa User 1',
+        state=TodoState.todo,
+        user_id=user.id,
+        due_date=datetime(2026, 8, 10, 10, 0, 0),
+        recurrence=RecurrencePeriod.daily,
+    )
+    todo_user_2 = TodoFactory(
+        title='Tarefa User 2',
+        state=TodoState.todo,
+        user_id=other_user.id,
+        due_date=datetime(2026, 8, 10, 10, 0, 0),
+        recurrence=RecurrencePeriod.daily,
+    )
+    session.add_all([todo_user_1, todo_user_2])
+    await session.commit()
+
+    resp_u1 = client.get(
+        f'/todos/schedule?date=2026-08-12&telegram_id={user.id}'
+    )
+    todos_u1 = resp_u1.json()['todos']
+    assert len(todos_u1) == 1
+    assert todos_u1[0]['title'] == 'Tarefa User 1'
+
+    resp_u2 = client.get(
+        f'/todos/schedule?date=2026-08-12&telegram_id={other_user.id}'
+    )
+    todos_u2 = resp_u2.json()['todos']
+    assert len(todos_u2) == 1
+    assert todos_u2[0]['title'] == 'Tarefa User 2'

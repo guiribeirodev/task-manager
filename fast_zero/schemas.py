@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -80,6 +80,25 @@ class TodoPublic(TodoSchema):
 
 class TodoList(BaseModel):
     todos: list[TodoPublic]
+
+
+class TodoScheduleItem(BaseModel):
+    id: int
+    title: str
+    description: str
+    state: TodoState
+    user_id: int | None = None
+    recurrence: RecurrencePeriod = RecurrencePeriod.none
+    recurrence_days: list[int] | None = None
+    due_date: datetime | None = None
+    is_recurring_occurrence: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class TodoScheduleResponse(BaseModel):
+    date: date
+    todos: list[TodoScheduleItem]
 
 
 class FilterTodo(FilterPage):

@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from http import HTTPStatus
 from typing import Annotated
 
@@ -14,6 +14,8 @@ from fast_zero.schemas import (
     Message,
     TodoList,
     TodoPublic,
+    TodoScheduleItem,
+    TodoScheduleResponse,
     TodoSchema,
     TodoUpdate,
 )
@@ -91,6 +93,98 @@ async def create_todo(
     await session.refresh(db_todo)
 
     return db_todo
+
+
+def _matches_recurrence(
+    todo: Todo, target_date: date, base_date: date
+) -> bool:
+    if todo.recurrence == RecurrencePeriod.daily:
+        return True
+    if todo.recurrence == RecurrencePeriod.weekly:
+        if todo.recurrence_days:
+            return target_date.weekday() in todo.recurrence_days
+        return target_date.weekday() == base_date.weekday()
+    if todo.recurrence == RecurrencePeriod.monthly:
+        last_day = calendar.monthrange(target_date.year, target_date.month)[1]
+        if todo.recurrence_days:
+            return any(
+                target_date.day == min(d, last_day)
+                for d in todo.recurrence_days
+            )
+        return target_date.day == min(base_date.day, last_day)
+    return False
+
+
+def project_todo_on_date(
+    todo: Todo, target_date: date
+) -> TodoScheduleItem | None:
+    if todo.state == TodoState.trash:
+        return None
+
+    base_datetime = todo.due_date or todo.created_at
+    base_date = base_datetime.date() if base_datetime else target_date
+    todo_time = (
+        base_datetime.time() if base_datetime else datetime.min.time()
+    )
+
+    if todo.due_date and todo.due_date.date() == target_date:
+        return TodoScheduleItem(
+            id=todo.id,
+            title=todo.title,
+            description=todo.description,
+            state=todo.state,
+            user_id=todo.user_id,
+            recurrence=todo.recurrence,
+            recurrence_days=todo.recurrence_days,
+            due_date=todo.due_date,
+            is_recurring_occurrence=False,
+            created_at=todo.created_at,
+            updated_at=todo.updated_at,
+        )
+
+    if todo.recurrence == RecurrencePeriod.none or target_date < base_date:
+        return None
+
+    if _matches_recurrence(todo, target_date, base_date):
+        projected_due_date = datetime.combine(target_date, todo_time)
+        return TodoScheduleItem(
+            id=todo.id,
+            title=todo.title,
+            description=todo.description,
+            state=TodoState.todo,
+            user_id=todo.user_id,
+            recurrence=todo.recurrence,
+            recurrence_days=todo.recurrence_days,
+            due_date=projected_due_date,
+            is_recurring_occurrence=True,
+            created_at=todo.created_at,
+            updated_at=todo.updated_at,
+        )
+
+    return None
+
+
+@router.get('/schedule', response_model=TodoScheduleResponse)
+async def get_schedule(
+    session: Session,
+    date: date | None = None,
+    telegram_id: int | None = None,
+):
+    target_date = date or datetime.now().date()
+    query = select(Todo).where(Todo.state != TodoState.trash)
+
+    if telegram_id:
+        query = query.filter(Todo.user_id == telegram_id)
+
+    db_todos = await session.scalars(query)
+    scheduled_todos: list[TodoScheduleItem] = []
+
+    for todo in db_todos.all():
+        item = project_todo_on_date(todo, target_date)
+        if item:
+            scheduled_todos.append(item)
+
+    return TodoScheduleResponse(date=target_date, todos=scheduled_todos)
 
 
 @router.get('/', response_model=TodoList)
