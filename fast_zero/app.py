@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from fast_zero.routers import auth, todos, users
+from fast_zero.routers import auth, habits, todos, users
 from fast_zero.schemas import Message
 
 app = FastAPI()
@@ -12,6 +12,8 @@ app = FastAPI()
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(todos.router)
+app.include_router(habits.router)
+
 
 
 class MessageIn(BaseModel):
