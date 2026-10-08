@@ -1,25 +1,18 @@
 from http import HTTPStatus
 
-from jwt import decode
+from fastapi import HTTPException
+import pytest
 
-from fast_zero.security import create_access_token, settings
-
-
-def test_jwt():
-    data = {'test': 'test'}
-    token = create_access_token(data)
-
-    decoded = decode(
-        token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-    )
-
-    assert decoded['test'] == data['test']
-    assert 'exp' in decoded
+from fast_zero.security import settings, verify_bot_token
 
 
-def test_jwt_invalid_token_is_ignored(client, user):
-    response = client.get(
-        f'/users/{user.id}', headers={'Authorization': 'Bearer token-invalido'}
-    )
+@pytest.mark.asyncio
+async def test_verify_bot_token_valid():
+    await verify_bot_token(api_key=settings.BOT_KEY)
 
-    assert response.status_code == HTTPStatus.OK
+
+@pytest.mark.asyncio
+async def test_verify_bot_token_invalid():
+    with pytest.raises(HTTPException) as exc_info:
+        await verify_bot_token(api_key='invalid-key')
+    assert exc_info.value.status_code == HTTPStatus.UNAUTHORIZED

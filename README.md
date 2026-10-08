@@ -34,9 +34,7 @@ uv sync
 3. Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis de ambiente:
 ```env
 DATABASE_URL="postgresql+psycopg://app_user:app_password@localhost:5432/app_db"
-SECRET_KEY="sua-chave-secreta"
-ALGORITHM="HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES="30"
+BOT_KEY="sua-chave-do-bot"
 ```
 *(Nota: Para desenvolvimento local sem o Docker, você pode alterar o `DATABASE_URL` para `sqlite+aiosqlite:///database.db` e ignorar a próxima etapa).*
 

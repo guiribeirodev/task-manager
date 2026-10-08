@@ -103,15 +103,6 @@ async def other_user(session):
     return user
 
 
-@pytest.fixture
-def token(client, user):
-    response = client.post(
-        '/auth/token',
-        data={'username': user.email, 'password': user.clean_password},
-    )
-    return response.json()['access_token']
-
-
 class UserFactory(factory.Factory):
     class Meta:
         model = User

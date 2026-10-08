@@ -1,55 +1,9 @@
-from http import HTTPStatus
+from fast_zero.security import get_password_hash, verify_password
 
 
-def test_get_token(client, user):
-    response = client.post(
-        '/auth/token',
-        data={'username': user.email, 'password': user.clean_password},
-    )
-    token = response.json()
-
-    assert response.status_code == HTTPStatus.OK
-    assert 'access_token' in token
-    assert 'token_type' in token
-
-
-def test_token_inexistent_user(client):
-    response = client.post(
-        '/auth/token',
-        data={'username': 'no_user@no_domain.com', 'password': 'testtest'},
-    )
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Incorrect email or password'}
-
-
-def test_token_wrong_password(client, user):
-    response = client.post(
-        '/auth/token',
-        data={'username': user.email, 'password': 'wrong_password'},
-    )
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Incorrect email or password'}
-
-
-def test_refresh_token(client):
-    response = client.post('/auth/refresh_token')
-
-    data = response.json()
-
-    assert response.status_code == HTTPStatus.OK
-    assert 'access_token' in data
-    assert 'token_type' in data
-    assert data['token_type'] == 'bearer'
-
-
-def test_refresh_token_ignores_authorization_header(client):
-    response = client.post(
-        '/auth/refresh_token',
-        headers={'Authorization': 'Bearer token-invalido'},
-    )
-
-    data = response.json()
-
-    assert response.status_code == HTTPStatus.OK
-    assert 'access_token' in data
-    assert 'token_type' in data
+def test_password_hash_and_verify():
+    password = 'mysecretpassword'
+    hashed = get_password_hash(password)
+    assert hashed != password
+    assert verify_password(password, hashed)
+    assert not verify_password('wrongpassword', hashed)
